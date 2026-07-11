@@ -1,0 +1,8 @@
+# H Computer-Use Agents SDK with the local browser driver (hai-drivers).
+# The [browser] extra is REQUIRED for local browser control (host=user_device).
+hai-agents[browser]
+
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic

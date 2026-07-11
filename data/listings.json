@@ -1,0 +1,128 @@
+{
+  "_comment": "Cached fallback listings so the map never fails on stage. San Francisco. The isPerfect listing carries the owner's WhatsApp number (a consenting teammate) — replace with your teammate's real number before the demo, or set CONTACT_WHATSAPP.",
+  "city": "san francisco",
+  "listings": [
+    {
+      "id": "cl-sf-001",
+      "title": "Sunny 1BR in the Mission, hardwood floors",
+      "priceUsd": 2400,
+      "url": "https://sfbay.craigslist.org/sfc/apa/mission-1br.html",
+      "neighborhood": "Mission District",
+      "lat": 37.7599,
+      "lng": -122.4148,
+      "availableFrom": "2026-07-14",
+      "bedrooms": 1,
+      "source": "craigslist"
+    },
+    {
+      "id": "cl-sf-002",
+      "title": "Modern SoMa studio, in-unit laundry",
+      "priceUsd": 2100,
+      "url": "https://sfbay.craigslist.org/sfc/apa/soma-studio.html",
+      "neighborhood": "SoMa",
+      "lat": 37.7785,
+      "lng": -122.4056,
+      "availableFrom": "2026-07-16",
+      "bedrooms": 0,
+      "source": "craigslist"
+    },
+    {
+      "id": "cl-sf-003",
+      "title": "Spacious 2BR in Hayes Valley",
+      "priceUsd": 3200,
+      "url": "https://sfbay.craigslist.org/sfc/apa/hayes-2br.html",
+      "neighborhood": "Hayes Valley",
+      "lat": 37.7765,
+      "lng": -122.4243,
+      "availableFrom": "2026-07-12",
+      "bedrooms": 2,
+      "source": "craigslist"
+    },
+    {
+      "id": "cl-sf-004",
+      "title": "Cozy 1BR on Nob Hill, great views",
+      "priceUsd": 2600,
+      "url": "https://sfbay.craigslist.org/sfc/apa/nobhill-1br.html",
+      "neighborhood": "Nob Hill",
+      "lat": 37.793,
+      "lng": -122.4161,
+      "availableFrom": "2026-07-18",
+      "bedrooms": 1,
+      "source": "craigslist"
+    },
+    {
+      "id": "cl-sf-005",
+      "title": "Bright 1BR in the Castro",
+      "priceUsd": 2500,
+      "url": "https://sfbay.craigslist.org/sfc/apa/castro-1br.html",
+      "neighborhood": "Castro",
+      "lat": 37.7609,
+      "lng": -122.435,
+      "availableFrom": "2026-07-15",
+      "bedrooms": 1,
+      "source": "craigslist"
+    },
+    {
+      "id": "cl-sf-006",
+      "title": "Quiet 2BR in the Inner Sunset",
+      "priceUsd": 2800,
+      "url": "https://sfbay.craigslist.org/sfc/apa/sunset-2br.html",
+      "neighborhood": "Inner Sunset",
+      "lat": 37.7558,
+      "lng": -122.4649,
+      "availableFrom": "2026-07-20",
+      "bedrooms": 2,
+      "source": "craigslist"
+    },
+    {
+      "id": "cl-sf-007",
+      "title": "Charming 1BR in North Beach",
+      "priceUsd": 2700,
+      "url": "https://sfbay.craigslist.org/sfc/apa/northbeach-1br.html",
+      "neighborhood": "North Beach",
+      "lat": 37.8003,
+      "lng": -122.4103,
+      "availableFrom": "2026-07-13",
+      "bedrooms": 1,
+      "source": "craigslist"
+    },
+    {
+      "id": "cl-sf-008",
+      "title": "Marina studio steps from the water",
+      "priceUsd": 2300,
+      "url": "https://sfbay.craigslist.org/sfc/apa/marina-studio.html",
+      "neighborhood": "Marina",
+      "lat": 37.803,
+      "lng": -122.436,
+      "availableFrom": "2026-07-17",
+      "bedrooms": 0,
+      "source": "craigslist"
+    },
+    {
+      "id": "cl-sf-perfect",
+      "title": "Bright 2BR by Dolores Park — flexible dates, message owner on WhatsApp",
+      "priceUsd": 2450,
+      "url": "https://sfbay.craigslist.org/sfc/apa/dolores-2br-perfect.html",
+      "neighborhood": "Mission Dolores",
+      "lat": 37.7596,
+      "lng": -122.4269,
+      "availableFrom": "2026-07-12",
+      "bedrooms": 2,
+      "source": "craigslist",
+      "isPerfect": true,
+      "whatsapp": "+14155550142"
+    },
+    {
+      "id": "cl-sf-010",
+      "title": "Renovated 2BR in the Richmond",
+      "priceUsd": 2900,
+      "url": "https://sfbay.craigslist.org/sfc/apa/richmond-2br.html",
+      "neighborhood": "Inner Richmond",
+      "lat": 37.7802,
+      "lng": -122.4644,
+      "availableFrom": "2026-07-19",
+      "bedrooms": 2,
+      "source": "craigslist"
+    }
+  ]
+}

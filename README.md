@@ -8,6 +8,34 @@ You give it a **city, dates, budget, and headcount**. It finds apartment listing
 
 ---
 
+## ▶ Run this build
+
+Two processes: the Next.js app (UI + live Craigslist discovery) and the Python contact service (WhatsApp via H **local browser control**).
+
+```bash
+# 0. API key (from ~/.hcompany/credentials or platform.hcompany.ai)
+cp .env.example .env && echo "HAI_API_KEY=hk-..." >> .env    # set your key
+
+# 1. Frontend (Next.js, TypeScript)  — http://localhost:3000
+npm install
+npm run dev
+
+# 2. Contact service (Python, local browser control) — http://localhost:8000
+cd contact-svc
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # add the same HAI_API_KEY
+uvicorn main:app --reload --port 8000
+```
+
+**Before the demo:** the contact agent drives a real Chrome on this laptop, so **log into WhatsApp Web** in the Chrome the H SDK controls (it uses profile `~/.hai/chrome-profile`, or pre-launch Chrome with `--remote-debugging-port=9222 --user-data-dir=...` and sign in there once). Set the controlled "perfect listing" `whatsapp` number in `data/listings.json` to a **consenting teammate's** number.
+
+**Flow:** enter search → the H agent scrapes Craigslist live and fills the map (falls back to `data/listings.json` if it stalls) → filter to a shortlist → click **Reach out on WhatsApp** on the perfect listing → watch the agent send the message in the **Agent View** panel → teammate replies (or hit **Owner replied** in the demo) → **"Found you a place!"** notification.
+
+Architecture and decisions: `.omc/specs/deep-interview-homeless-apartmentagent.md`. Contact service details: `contact-svc/README.md`.
+
+---
+
 ## Table of Contents
 1. [The Pitch](#the-pitch)
 2. [How It Works (Pipeline)](#how-it-works-pipeline)
