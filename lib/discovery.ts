@@ -39,8 +39,24 @@ function ensurePerfect(list: Listing[]): Listing[] {
   return list.some((l) => l.isPerfect) ? list : [PERFECT, ...list];
 }
 
+// Cached listings use real Craigslist SEARCH urls (neighborhood + price) so a
+// click always lands on a live, matching results page instead of a dead
+// fabricated permalink (which 404s). Live-discovered listings keep the agent's
+// real post permalinks.
+export function realCraigslistUrl(l: Listing, city: string): string {
+  const { slug } = cityCenter(city);
+  const q = encodeURIComponent((l.neighborhood || "").toLowerCase());
+  return `https://${slug}.craigslist.org/search/apa?query=${q}&max_price=${Math.round(l.priceUsd) + 200}`;
+}
+
+function withRealUrl(l: Listing, city: string): Listing {
+  return { ...l, url: realCraigslistUrl(l, city) };
+}
+
 function fallbackListings(q: SearchQuery): Listing[] {
-  return ensurePerfect(SEED.filter((l) => !q.budget || l.priceUsd <= q.budget * 1.1));
+  const base = SEED.filter((l) => !q.budget || l.priceUsd <= q.budget * 1.1).map((l) => withRealUrl(l, q.city));
+  if (PERFECT && !base.some((l) => l.isPerfect)) return [withRealUrl(PERFECT, q.city), ...base];
+  return base;
 }
 
 function craigslistUrl(slug: string, budget: number): string {
@@ -123,7 +139,10 @@ export async function startDiscovery(q: SearchQuery): Promise<DiscoverRecord> {
   if (!res.ok) throw new Error(`session create failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
   const sessionId: string = data.id;
-  const agentViewUrl: string | null = data?.status?.agent_view_url ?? null;
+  // agent_view_url is null while queued; it's deterministic from the id, so build
+  // it ourselves so the "Watch live" link always works.
+  const agentViewUrl: string =
+    data?.status?.agent_view_url ?? `https://platform.hcompany.ai/agents/sessions/${sessionId}`;
 
   const rec: DiscoverRecord = {
     sessionId,
