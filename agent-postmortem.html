@@ -1,0 +1,312 @@
+<title>Agent Run Post-Mortem — SF Apartment Search</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f0f2f5;
+    --border: #e2e6ea;
+    --text: #191d23;
+    --muted: #5b6672;
+    --accent: #3b6fd4;
+    --fail: #cf2f36;
+    --fail-bg: #fbeaea;
+    --warn: #a9700a;
+    --warn-bg: #fbf1dd;
+    --ok: #1f8a54;
+    --ok-bg: #e5f4ec;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --maxw: 940px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1116;
+      --surface: #161b22;
+      --surface-2: #1c222b;
+      --border: #2a313b;
+      --text: #e7ebf0;
+      --muted: #97a1af;
+      --accent: #6ea0f5;
+      --fail: #f2555b;
+      --fail-bg: #2a1618;
+      --warn: #e2a13a;
+      --warn-bg: #2a2113;
+      --ok: #4cc088;
+      --ok-bg: #14271d;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #e2e6ea;
+    --text: #191d23; --muted: #5b6672; --accent: #3b6fd4;
+    --fail: #cf2f36; --fail-bg: #fbeaea; --warn: #a9700a; --warn-bg: #fbf1dd;
+    --ok: #1f8a54; --ok-bg: #e5f4ec;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1116; --surface: #161b22; --surface-2: #1c222b; --border: #2a313b;
+    --text: #e7ebf0; --muted: #97a1af; --accent: #6ea0f5;
+    --fail: #f2555b; --fail-bg: #2a1618; --warn: #e2a13a; --warn-bg: #2a2113;
+    --ok: #4cc088; --ok-bg: #14271d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 48px 22px 80px; }
+  header.top { border-bottom: 1px solid var(--border); padding-bottom: 26px; margin-bottom: 34px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 12px;
+  }
+  h1 {
+    font-size: clamp(26px, 4.5vw, 40px); line-height: 1.08; margin: 0 0 16px;
+    letter-spacing: -0.02em; text-wrap: balance; font-weight: 680;
+  }
+  .query {
+    font-family: var(--mono); font-size: 13.5px; background: var(--surface-2);
+    border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 7px; padding: 12px 14px; color: var(--text);
+    overflow-x: auto; margin: 4px 0 20px;
+  }
+  .verdict {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    background: var(--fail-bg); color: var(--fail);
+    border: 1px solid color-mix(in srgb, var(--fail) 35%, transparent);
+    padding: 7px 13px; border-radius: 999px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .lede { color: var(--muted); font-size: 16px; max-width: 62ch; margin: 22px 0 0; }
+  h2 {
+    font-size: 13px; font-family: var(--mono); text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--muted); font-weight: 600;
+    margin: 54px 0 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+  /* Timeline */
+  .trace { display: flex; flex-direction: column; gap: 2px; }
+  .step {
+    display: grid; grid-template-columns: 74px 1fr; gap: 16px;
+    padding: 13px 0; border-bottom: 1px solid var(--border); align-items: start;
+  }
+  .step:last-child { border-bottom: none; }
+  .ts { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+  .body-cell { min-width: 0; }
+  .act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 5px; white-space: nowrap;
+  }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.fail { background: var(--fail-bg); color: var(--fail); }
+  .what { font-weight: 580; font-size: 15px; }
+  .note { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+  .note code { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+  /* Diagnosis cards */
+  .cards { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 11px; padding: 18px 20px; position: relative;
+  }
+  .card .rc {
+    font-family: var(--mono); font-size: 11px; color: var(--fail);
+    font-weight: 700; letter-spacing: 0.05em; margin-bottom: 8px;
+  }
+  .card h3 { font-size: 16.5px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .card p { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+  .card p:last-child { margin-bottom: 0; }
+  .fix {
+    background: var(--ok-bg); border-radius: 8px; padding: 11px 13px;
+    font-size: 14px; color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--ok) 25%, transparent);
+  }
+  .fix b { color: var(--ok); font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 4px; }
+  .fix code { font-family: var(--mono); font-size: 12.5px; background: color-mix(in srgb, var(--ok) 12%, transparent); padding: 1px 5px; border-radius: 4px; }
+  /* Callout */
+  .callout {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 10px;
+    padding: 20px 22px; margin-top: 8px;
+  }
+  .callout h3 { margin: 0 0 10px; font-size: 17px; }
+  .callout p { margin: 0 0 10px; color: var(--muted); font-size: 14.5px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout strong { color: var(--text); }
+  /* Prompt block */
+  .promptwrap { position: relative; }
+  pre.prompt {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 18px; overflow-x: auto;
+    margin: 0; color: var(--text); white-space: pre; tab-size: 2;
+  }
+  .copy {
+    position: absolute; top: 11px; right: 11px; font-family: var(--mono);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer;
+    background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+    padding: 5px 10px; border-radius: 6px; transition: color .15s, border-color .15s;
+  }
+  .copy:hover { color: var(--accent); border-color: var(--accent); }
+  .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .metrics { display: flex; gap: 26px; flex-wrap: wrap; margin-top: 20px; }
+  .metric { }
+  .metric .n { font-family: var(--mono); font-size: 26px; font-weight: 680; letter-spacing: -0.02em; }
+  .metric .n.bad { color: var(--fail); }
+  .metric .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); }
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12.5px; font-family: var(--mono); }
+  @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <p class="eyebrow">H Agent · Run Post-Mortem · 12:15–12:19</p>
+    <h1>The agent searched hard and found nothing. Here's why.</h1>
+    <div class="query">find me an apartment in san francisco from the 18th to the 21st of july with a budget of $300 for 1 person near the areas of north beach and marina</div>
+    <span class="verdict"><span class="dot"></span>OUTCOME: 0 listings · budget declared "unrealistic"</span>
+    <p class="lede">Most of this failure wasn't the agent being dumb. It was pointed at the wrong section of Craigslist to solve a task the platform can't answer, then it did geography through a keyword box. Any agent would return zero. Below: the exact trace, the five root causes, and the corrected prompt.</p>
+    <div class="metrics">
+      <div class="metric"><div class="n bad">14</div><div class="l">actions</div></div>
+      <div class="metric"><div class="n bad">6</div><div class="l">dead-end searches</div></div>
+      <div class="metric"><div class="n bad">0</div><div class="l">listings found</div></div>
+      <div class="metric"><div class="n">~3 min</div><div class="l">wall time</div></div>
+    </div>
+  </header>
+
+  <h2>What it did — step by step</h2>
+  <div class="trace">
+    <div class="step"><div class="ts">12:16:07</div><div class="body-cell">
+      <div class="act"><span class="chip ok">ok</span><span class="what">Start on Bing, plan to hit FB Marketplace or Craigslist</span></div>
+      <div class="note">Reasonable opening move.</div>
+    </div></div>
+    <div class="step"><div class="ts">12:16:20</div><div class="body-cell">
+      <div class="act"><span class="chip warn">warn</span><span class="what">Navigate to Facebook Marketplace → login modal blocks the page</span></div>
+    </div></div>
+    <div class="step"><div class="ts">12:16:34</div><div class="body-cell">
+      <div class="act"><span class="chip fail">fail</span><span class="what">Click "Property Rentals" → "Sorry, something went wrong"</span></div>
+      <div class="note">FB gates rentals behind login. Logged-out browsing is a dead end — this confirms the Craigslist-only decision.</div>
+    </div></div>
+    <div class="step"><div class="ts">12:16:41</div><div class="body-cell">
+      <div class="act"><span class="chip fail">fail</span><span class="what">Switch to Craigslist <code>/search/apa</code> — apartments / housing</span></div>
+      <div class="note">Wrong section. <code>/apa</code> is <b>monthly leases</b>. Short stays live in <code>/sub</code> (sublets / temporary). It never went there.</div>
+    </div></div>
+    <div class="step"><div class="ts">12:16:57</div><div class="body-cell">
+      <div class="act"><span class="chip fail">fail</span><span class="what">Set max price = $300 on monthly listings → 9,688 drops to 60 junk</span></div>
+      <div class="note">Surfaced $1, $100, $125 listings and posts in Reno, Stockton, Santa Clara. Filtering monthly rent by a 3-night total budget is meaningless.</div>
+    </div></div>
+    <div class="step"><div class="ts">12:17:15</div><div class="body-cell">
+      <div class="act"><span class="chip fail">fail</span><span class="what">Type "North Beach Marina" into the keyword box → 0 results</span></div>
+      <div class="note">Geography done through free-text search. Craigslist AND-matches the literal phrase against listing text, and two neighborhoods jammed together match nothing.</div>
+    </div></div>
+    <div class="step"><div class="ts">12:17:29</div><div class="body-cell">
+      <div class="act"><span class="chip warn">warn</span><span class="what">Try "furnished" → 60 results, but in San Jose, Carmel, Reno</span></div>
+      <div class="note">Still scoped to the whole Bay Area, not SF.</div>
+    </div></div>
+    <div class="step"><div class="ts">12:17:55</div><div class="body-cell">
+      <div class="act"><span class="chip ok">ok</span><span class="what">Finally narrow location dropdown to "san francisco" (sfc)</span></div>
+      <div class="note">Correct move — but seven steps late, and still in the wrong section with the wrong filters.</div>
+    </div></div>
+    <div class="step"><div class="ts">12:18:08</div><div class="body-cell">
+      <div class="act"><span class="chip fail">fail</span><span class="what">"short term" in SF → 0 · then "room" → 0 local</span></div>
+    </div></div>
+    <div class="step"><div class="ts">12:18:29</div><div class="body-cell">
+      <div class="act"><span class="chip warn">warn</span><span class="what">Tries to clear the search box, fails (emits a stray <code>write 0.45</code>)</span></div>
+      <div class="note">Low-level UI manipulation is fragile. Rigid step instructions reduce this flailing.</div>
+    </div></div>
+    <div class="step"><div class="ts">12:18:59</div><div class="body-cell">
+      <div class="act"><span class="chip fail">fail</span><span class="what">Back to FB, search "apartment" → "No results within 65 km" + a couch from LA</span></div>
+    </div></div>
+    <div class="step"><div class="ts">12:19:08</div><div class="body-cell">
+      <div class="act"><span class="chip fail">fail</span><span class="what">Gives up. Final answer: nothing found, budget "not feasible"</span></div>
+      <div class="note">Never tried: sublets/temporary section · neighborhood checkboxes · reading dates from post bodies · one neighborhood per run.</div>
+    </div></div>
+  </div>
+
+  <h2>Five root causes → the fix</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="rc">ROOT CAUSE 01 · TASK–PLATFORM MISMATCH</div>
+      <h3>Wrong Craigslist section</h3>
+      <p>It searched <code>/apa</code> (apartments = monthly leases). A $300-total, 3-night stay simply doesn't exist there. Guaranteed zero, no matter how good the agent is.</p>
+      <div class="fix"><b>Fix</b>Send it to <code>sfbay.craigslist.org/search/sub</code> — sublets / temporary, where short stays actually live.</div>
+    </div>
+    <div class="card">
+      <div class="rc">ROOT CAUSE 02 · GEO THROUGH TEXT</div>
+      <h3>Neighborhoods typed as keywords</h3>
+      <p>"North Beach Marina" went into the search box as a literal phrase, AND-matched against listing text, and combined two areas into one impossible query.</p>
+      <div class="fix"><b>Fix</b>Use the <code>NEIGHBORHOODS</code> filter checkboxes. One neighborhood per run — never both at once.</div>
+    </div>
+    <div class="card">
+      <div class="rc">ROOT CAUSE 03 · AMBIGUOUS BUDGET</div>
+      <h3>$300 total vs monthly, undefined</h3>
+      <p>The agent guessed the budget was monthly-ish and filtered accordingly, surfacing scam-priced junk instead of interpreting "$300 for the whole stay."</p>
+      <div class="fix"><b>Fix</b>State it explicitly: <code>$300 TOTAL for 3 nights (~$100/night)</code>. Read prices per listing instead of a hard max filter.</div>
+    </div>
+    <div class="card">
+      <div class="rc">ROOT CAUSE 04 · DATES DROPPED</div>
+      <h3>July 18–21 silently ignored</h3>
+      <p>Craigslist has no date filter, so the agent just abandoned the date requirement without saying so. The core ask went unmet invisibly.</p>
+      <div class="fix"><b>Fix</b>Tell it there is no date filter — open each post and read availability + minimum stay from the body.</div>
+    </div>
+    <div class="card">
+      <div class="rc">ROOT CAUSE 05 · UNDER-CONSTRAINED</div>
+      <h3>The agent free-associates</h3>
+      <p>Given a loose goal, Holo improvised search terms ("furnished", "room", "short term") and thrashed. It needs a script, not a wish.</p>
+      <div class="fix"><b>Fix</b>Give rigid, one-variable-at-a-time steps with a required verification step before it's allowed to conclude "zero."</div>
+    </div>
+    <div class="card">
+      <div class="rc">CONFIRMED · NOT A BUG</div>
+      <h3>FB Marketplace needs login</h3>
+      <p>Property Rentals errored out logged-out. This isn't fixable without an account, and it validates the plan.</p>
+      <div class="fix"><b>Decision</b>Craigslist-only for the core. FB Marketplace stays a stretch goal.</div>
+    </div>
+  </div>
+
+  <h2>What this means for the plan</h2>
+  <div class="callout">
+    <h3>The task, as phrased, was unwinnable — and that's the point</h3>
+    <p>A real "$300 / 3-night / Marina" search returns nothing on Craigslist regardless of agent quality. That's not a defect to patch. It's <strong>proof the demo must run on a listing you control</strong> (a teammate posts it), so the reply lands live and on cue.</p>
+    <p>Reframe the agent's job: not <strong>"find impossible inventory"</strong> but <strong>"filter and extract correctly, then handle outreach."</strong> That plays to the agent's strengths and it's demoable. The corrected prompt below is the retry to run in the H interface.</p>
+  </div>
+
+  <h2>Corrected prompt — paste into the H agent</h2>
+  <div class="promptwrap">
+    <button class="copy" type="button" onclick="navigator.clipboard.writeText(document.getElementById('p').textContent).then(()=>{this.textContent='copied';setTimeout(()=>this.textContent='copy',1400)})">copy</button>
+    <pre class="prompt" id="p">You are searching Craigslist for a short-term place to stay.
+Follow these steps exactly. Do not skip the verification step.
+
+PARAMETERS
+- City: San Francisco (city only, NOT the whole Bay Area)
+- Neighborhood: Marina — THIS RUN IS MARINA ONLY. Ignore every other neighborhood.
+- Dates: July 18-21, 2026 (3 nights: check-in 18th, check-out 21st)
+- Guests: 1
+- Budget: $300 TOTAL for the whole 3-night stay (~$100/night). A total, not a monthly rent.
+
+RULES
+1. Use Craigslist only. Do NOT use Facebook Marketplace — it requires login.
+2. Go to "sublets / temporary", NOT "apartments / housing for rent".
+   Sublets/temporary is where short stays live; apartments = monthly leases.
+   Navigate to https://sfbay.craigslist.org/search/sub
+3. Set the location to San Francisco city (subarea "san francisco" / sfc).
+   Do NOT leave it on "all SF bay area".
+4. Filter the neighborhood using the NEIGHBORHOODS checkboxes in the left sidebar —
+   check "Marina" only. Do NOT type neighborhood names into the keyword box.
+5. Do NOT set a hard max-price filter. Read each listing's price and note whether
+   it looks monthly or short-term/nightly.
+6. Craigslist has NO date filter. Do not filter by date. Open each candidate
+   listing and read the post body for available dates and minimum stay.
+
+FOR EACH LISTING return a row:
+Title | Price (monthly vs short-term) | Neighborhood | Dates / min stay (or "not stated") | URL
+
+VERIFICATION (required): if Marina returns zero, do NOT stop. Remove the neighborhood
+filter and report how many sublets exist in San Francisco total. This tells us whether
+the problem is the filter or the inventory. Report that number.
+
+OUTPUT: a table of matching listings, then the verification count.</pre>
+  </div>
+  <p class="note" style="margin-top:14px">Run North Beach as a <b>separate session</b> (swap every "Marina" for "North Beach"). To test agent mechanics without the inventory problem, replace the budget line with: <i>"show me everything, sort price low-to-high, ignore budget for this test."</i></p>
+
+  <footer>Homeless · ApartmentAgent · H Company Computer Use Hackathon · Track 2 · generated from the 12:15 run trace</footer>
+</div>
