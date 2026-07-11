@@ -11,6 +11,8 @@ export const ListingSchema = z.object({
   lng: z.number(),
   availableFrom: z.string().optional().default(""), // ISO date or free text
   bedrooms: z.number().optional(),
+  sqft: z.number().optional(),
+  imageUrl: z.string().optional(),
   source: z.string().optional().default("craigslist"),
   // The controlled "perfect listing" the agent contacts. Carries the owner's WhatsApp number.
   isPerfect: z.boolean().optional().default(false),

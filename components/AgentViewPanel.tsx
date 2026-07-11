@@ -1,62 +1,69 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ContactStatus } from "@/lib/types";
+import { SessionEvent } from "@/lib/types";
+
+const TERMINAL = ["completed", "failed", "timed_out", "interrupted", "cancelled"];
 
 export default function AgentViewPanel({
-  listingTitle,
-  status,
+  title,
+  subtitle,
+  statusLabel,
+  events,
   agentViewUrl,
-  onSimulateReply,
   onClose,
+  action,
 }: {
-  listingTitle: string;
-  status: ContactStatus | null;
+  title: string;
+  subtitle?: string;
+  statusLabel: string;
+  events: SessionEvent[];
   agentViewUrl?: string | null;
-  onSimulateReply: () => void;
   onClose: () => void;
+  action?: { label: string; onClick: () => void };
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [status?.events?.length]);
+  }, [events.length]);
 
-  const settled = ["completed", "failed", "timed_out", "interrupted", "cancelled"];
-  const live = status && !settled.includes(status.status);
+  const live = !TERMINAL.includes(statusLabel);
 
   return (
     <div className="agentview">
       <header>
         <div className="t">
           {live && <span className="pulse" />}
-          Agent View — contacting owner
+          {title}
         </div>
         <button className="ghost" onClick={onClose} style={{ padding: "2px 8px" }}>
           ✕
         </button>
       </header>
       <div className="events">
-        <div className="muted">WhatsApp inquiry · {listingTitle}</div>
-        {(status?.events ?? []).map((e, i) => (
+        {subtitle && <div className="muted">{subtitle}</div>}
+        {events.map((e, i) => (
           <div className="event" key={i}>
             <span className="step">{String(e.step).padStart(2, "0")}</span>
             {e.text}
           </div>
         ))}
-        {!status?.events?.length && <div className="muted">Starting session…</div>}
+        {!events.length && <div className="muted">Starting session…</div>}
         <div ref={endRef} />
       </div>
       <footer>
-        <span className="badge">{status?.status ?? "pending"}</span>
+        <span className="badge">{statusLabel}</span>
         {agentViewUrl && (
           <a href={agentViewUrl} target="_blank" rel="noreferrer">
-            Open in H Agent View ↗
+            Watch live in H Agent View ↗
           </a>
         )}
         <div style={{ flex: 1 }} />
-        <button className="ghost" onClick={onSimulateReply} title="Owner replies (demo)">
-          Owner replied
-        </button>
+        {action && (
+          <button className="ghost" onClick={action.onClick}>
+            {action.label}
+          </button>
+        )}
       </footer>
     </div>
   );

@@ -1,5 +1,5 @@
 {
-  "_comment": "Cached fallback listings so the map never fails on stage. San Francisco. The isPerfect listing carries the owner's WhatsApp number (a consenting teammate) — replace with your teammate's real number before the demo, or set CONTACT_WHATSAPP.",
+  "_comment": "Cached fallback listings so the map never fails on stage. San Francisco. The isPerfect listing carries the owner's WhatsApp number (a consenting teammate) — replace with your teammate's real number before the demo.",
   "city": "san francisco",
   "listings": [
     {
@@ -12,6 +12,8 @@
       "lng": -122.4148,
       "availableFrom": "2026-07-14",
       "bedrooms": 1,
+      "sqft": 720,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-001/400/240",
       "source": "craigslist"
     },
     {
@@ -24,6 +26,8 @@
       "lng": -122.4056,
       "availableFrom": "2026-07-16",
       "bedrooms": 0,
+      "sqft": 520,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-002/400/240",
       "source": "craigslist"
     },
     {
@@ -36,6 +40,8 @@
       "lng": -122.4243,
       "availableFrom": "2026-07-12",
       "bedrooms": 2,
+      "sqft": 1050,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-003/400/240",
       "source": "craigslist"
     },
     {
@@ -48,6 +54,8 @@
       "lng": -122.4161,
       "availableFrom": "2026-07-18",
       "bedrooms": 1,
+      "sqft": 680,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-004/400/240",
       "source": "craigslist"
     },
     {
@@ -60,6 +68,8 @@
       "lng": -122.435,
       "availableFrom": "2026-07-15",
       "bedrooms": 1,
+      "sqft": 700,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-005/400/240",
       "source": "craigslist"
     },
     {
@@ -72,6 +82,8 @@
       "lng": -122.4649,
       "availableFrom": "2026-07-20",
       "bedrooms": 2,
+      "sqft": 980,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-006/400/240",
       "source": "craigslist"
     },
     {
@@ -84,6 +96,8 @@
       "lng": -122.4103,
       "availableFrom": "2026-07-13",
       "bedrooms": 1,
+      "sqft": 640,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-007/400/240",
       "source": "craigslist"
     },
     {
@@ -96,6 +110,8 @@
       "lng": -122.436,
       "availableFrom": "2026-07-17",
       "bedrooms": 0,
+      "sqft": 540,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-008/400/240",
       "source": "craigslist"
     },
     {
@@ -108,6 +124,8 @@
       "lng": -122.4269,
       "availableFrom": "2026-07-12",
       "bedrooms": 2,
+      "sqft": 900,
+      "imageUrl": "https://picsum.photos/seed/dolores-perfect/400/240",
       "source": "craigslist",
       "isPerfect": true,
       "whatsapp": "+14155550142"
@@ -122,6 +140,8 @@
       "lng": -122.4644,
       "availableFrom": "2026-07-19",
       "bedrooms": 2,
+      "sqft": 1020,
+      "imageUrl": "https://picsum.photos/seed/cl-sf-010/400/240",
       "source": "craigslist"
     }
   ]

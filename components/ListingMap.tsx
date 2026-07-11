@@ -44,9 +44,25 @@ export default function ListingMap({
       {listings.map((l) => (
         <Marker key={l.id} position={[l.lat, l.lng]} icon={pin(l)}>
           <Popup>
-            <div style={{ minWidth: 180 }}>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>{l.title}</div>
-              <div style={{ color: "#0a7", fontWeight: 700 }}>${l.priceUsd}/mo</div>
+            <div style={{ minWidth: 200, maxWidth: 240 }}>
+              {l.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={l.imageUrl}
+                  alt={l.title}
+                  style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 6, marginBottom: 6 }}
+                />
+              )}
+              <a href={l.url} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: "#111", textDecoration: "none" }}>
+                {l.title}
+              </a>
+              <div style={{ color: "#0a7", fontWeight: 700, marginTop: 2 }}>
+                ${l.priceUsd}/mo
+                <span style={{ color: "#666", fontWeight: 500, fontSize: 12 }}>
+                  {l.bedrooms === 0 ? " · Studio" : l.bedrooms ? ` · ${l.bedrooms} BR` : ""}
+                  {l.sqft ? ` · ${l.sqft} ft²` : ""}
+                </span>
+              </div>
               <div style={{ fontSize: 12, color: "#555" }}>
                 {l.neighborhood} {l.availableFrom ? `· from ${l.availableFrom}` : ""}
               </div>
