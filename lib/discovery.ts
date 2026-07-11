@@ -133,7 +133,7 @@ export async function startDiscovery(q: SearchQuery): Promise<DiscoverRecord> {
         "agent.environments[kind=web].start_url": craigslistUrl(slug, q.budget),
         "agent.answer_format": ANSWER_FORMAT,
       },
-      max_seconds: MAX_SECONDS,
+      max_time_s: MAX_SECONDS, // documented field (was wrongly max_seconds → sessions never time-bounded → zombies)
     }),
   });
   if (!res.ok) throw new Error(`session create failed: ${res.status} ${await res.text()}`);
@@ -229,6 +229,19 @@ async function runLoop(id: string, q: SearchQuery) {
     rec.listings = fallbackListings(q);
     rec.source = "fallback";
     rec.events.push({ step: rec.events.length, text: `Live discovery failed (${rec.error}) — using cached results` });
+  } finally {
+    // Free the H concurrency slot as soon as listings are settled (a lingering
+    // non-terminal session would hold 1 of only 3 slots → zombies).
+    void deleteSession(id);
+  }
+}
+
+// DELETE the H session to release its concurrency slot. Safe on already-terminal sessions.
+async function deleteSession(id: string): Promise<void> {
+  try {
+    await fetch(`${BASE}/sessions/${id}`, { method: "DELETE", headers: headers() });
+  } catch {
+    /* best-effort */
   }
 }
 
