@@ -158,6 +158,21 @@ def open_whatsapp_chat(number: str, text: str) -> None:
     subprocess.run(["open", url], check=False)
 
 
+def _force_send() -> None:
+    """Deterministically send whatever is composed in the WhatsApp input box by
+    pressing Return (Accessibility granted). Belt-and-suspenders so a message the
+    H agent typed but didn't send still goes out. Safe if the box is empty."""
+    try:
+        subprocess.run(["osascript", "-e", 'tell application "WhatsApp" to activate'],
+                       timeout=8, capture_output=True)
+        time.sleep(0.7)
+        subprocess.run(["osascript", "-e",
+                        'tell application "System Events" to key code 36'],  # Return
+                       timeout=8, capture_output=True)
+    except Exception as e:
+        print("force_send err", e)
+
+
 def _opening_task(c: dict[str, Any], message: str) -> str:
     who = c.get("contact_name") or f"the number {c['whatsapp_number']}"
     return (
@@ -311,6 +326,8 @@ def _run_turn(conv_id: str, task: str, opening: bool) -> None:
             threading.Timer(MAX_TIME_S + WATCHDOG_GRACE_S,
                             lambda: (getattr(handle, "cancel", lambda: None)())).start()
             _stream_turn(conv, handle)
+            if conv["mode"] == "desktop":
+                _force_send()  # safety net: ensure a composed message actually sent
             _http_delete_session(hid or "")  # free the slot after the turn
         else:
             try:
@@ -318,6 +335,8 @@ def _run_turn(conv_id: str, task: str, opening: bool) -> None:
             except TypeError:
                 result = client.run_session(agent=agent, messages=messages)
             _finalize_turn(conv, result)
+            if conv["mode"] == "desktop":
+                _force_send()
     except Exception as exc:
         with _LOCK:
             conv["phase"] = "failed"
