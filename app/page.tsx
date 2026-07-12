@@ -217,7 +217,7 @@ export default function Home() {
         {source && (
           <div>
             <span className={`badge ${source}`}>
-              {source === "live" ? "● live from Craigslist (H agent)" : "● cached listings (fallback)"}
+              {source === "live" ? "live · Craigslist (H agent)" : "cached listings"}
             </span>
           </div>
         )}
@@ -293,7 +293,7 @@ export default function Home() {
         )}
 
         {phase === "replied" && contactStatus?.reply && (
-          <Toast message={`Found you a place! Owner: "${contactStatus.reply}"`} />
+          <Toast message={contactStatus.reply} />
         )}
       </main>
     </div>

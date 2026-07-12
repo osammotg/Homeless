@@ -22,7 +22,7 @@ export default function ListingCard({
 }) {
   return (
     <div className={`card ${l.isPerfect ? "perfect" : ""}`}>
-      {l.isPerfect && <span className="perfect-tag">◆ best match · contactable</span>}
+      {l.isPerfect && <span className="perfect-tag">best match · contactable</span>}
       <div className="card-body">
         {l.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -33,9 +33,9 @@ export default function ListingCard({
             {l.title}
           </a>
           <div className="meta">
-            <span className="price">${l.priceUsd}/mo</span>
-            {beds(l) && <span>{beds(l)}</span>}
-            {l.sqft ? <span>{l.sqft} ft²</span> : null}
+            <span className="price">${l.priceUsd}<span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 400 }}>/mo</span></span>
+            {beds(l) && <span className="tag">{beds(l)}</span>}
+            {l.sqft ? <span className="tag">{l.sqft} ft²</span> : null}
           </div>
           <div className="meta">
             <span>{l.neighborhood}</span>

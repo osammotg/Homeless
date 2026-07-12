@@ -24,3 +24,7 @@ contact-svc/.venv/
 *.tsbuildinfo
 .gstack/
 .omc/state/
+
+# deslop design-run screenshots (keep the .md rationale, not the PNGs)
+deslop-run/**/*.png
+deslop-run/**/*.html

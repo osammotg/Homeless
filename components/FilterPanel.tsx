@@ -17,8 +17,8 @@ export default function FilterPanel({
   return (
     <div>
       <div className="section-title">Filters</div>
-      <div className="field">
-        <label>Max price: ${filters.maxPrice}/mo</label>
+      <div className="field slider">
+        <label><span>Max price</span><b>${filters.maxPrice}/mo</b></label>
         <input
           type="range"
           min={priceBounds.min}
@@ -28,8 +28,8 @@ export default function FilterPanel({
           onChange={(e) => onChange({ ...filters, maxPrice: Number(e.target.value) })}
         />
       </div>
-      <div className="field">
-        <label>Max distance from center: {filters.maxKm} km</label>
+      <div className="field slider">
+        <label><span>Max distance</span><b>{filters.maxKm} km</b></label>
         <input
           type="range"
           min={1}
