@@ -125,9 +125,12 @@ def _add_event(conv: dict[str, Any], text: str) -> None:
 
 
 def _opening_message(c: dict[str, Any]) -> str:
+    # Clean the title (drop any "— ..." marketing tail) for a natural message.
+    title = c["listing_title"].split("—")[0].split(" - ")[0].strip()
     return (
-        f"Hi! I'm interested in '{c['listing_title']}'. Is it available for "
-        f"{c['dates']} for {c['headcount']} people? What's the total price? Thanks!"
+        f"Hi there! \U0001F44B I came across your place “{title}” and I'd really love to rent it.\n"
+        f"Would it be available from {c['dates']}, for {c['headcount']} of us?\n"
+        f"Could you let me know the total monthly price? Thanks so much! \U0001F64F"
     )
 
 
@@ -158,16 +161,27 @@ def open_whatsapp_chat(number: str, text: str) -> None:
 def _opening_task(c: dict[str, Any], message: str) -> str:
     who = c.get("contact_name") or f"the number {c['whatsapp_number']}"
     return (
-        "You are operating the macOS desktop. Do exactly this, then stop. Do not open "
-        "any other app.\n"
-        f"1. Bring WhatsApp to the front. A chat for {who} should be open with a message "
-        "pre-typed. If a login/QR screen shows, report BLOCKED on WhatsApp login and stop.\n"
-        f"2. Confirm the chat is for {who} and the message box contains: \"{message}\". "
-        "If empty, click it and type exactly that message.\n"
-        "3. If the wrong chat / no chat is open, report 'contact not found' and stop.\n"
-        "4. Send it (click send or press Return) and confirm it shows as sent.\n"
-        "Then answer the structured result: replied=true, awaiting_owner=true, "
-        f"owner_said=\"\", we_said=the message, booked=false."
+        "You are operating the macOS desktop. Your ONLY job is to actually SEND one WhatsApp "
+        "message and visually confirm it was sent. Do NOT open any other app (no Telegram, Mail, "
+        "Terminal, or browser) and do not type anything unrelated.\n"
+        f"1. Bring the WhatsApp desktop app to the front. The chat for {who} should already be "
+        "open with the message pre-typed in the input box. If a login/QR screen is shown instead "
+        "of chats, report BLOCKED on WhatsApp login and stop.\n"
+        f"2. Confirm you are in the CORRECT chat ({who}) and the message box contains exactly:\n"
+        f"\"{message}\"\n"
+        "If the box is empty or shows different/leftover text, clear it, click the message box and "
+        "type exactly that message (use Shift+Return for line breaks — a plain Return sends).\n"
+        f"3. If the wrong chat or no chat is open, report 'contact not found' and stop — do NOT "
+        "message anyone else.\n"
+        "4. SEND the message: press Return, or click the round send button to the right of the "
+        "input box.\n"
+        "5. VERIFY IT ACTUALLY SENT: look at the conversation and confirm the message now appears "
+        "as an outgoing (right-aligned) bubble with a clock/check mark, and is no longer sitting in "
+        "the input box. If it did NOT send, press Return again / click send again and re-check. "
+        "Repeat until you SEE the message in the thread as sent.\n"
+        "6. Only AFTER you have visually confirmed the message is sent, answer the structured "
+        "result: replied=true, awaiting_owner=true, owner_said=\"\", we_said=the exact message you "
+        "sent, booked=false. If you truly could not get it to send, set replied=false and explain."
     )
 
 

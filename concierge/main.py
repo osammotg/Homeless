@@ -62,6 +62,76 @@ def send(chat_id: int, text: str) -> None:
         print("send err", e)
 
 
+def send_photo_url(chat_id: int, url: Optional[str], caption: str = "") -> None:
+    if not url:
+        return
+    try:
+        requests.post(f"{TG_API}/sendPhoto",
+                      data={"chat_id": chat_id, "photo": url, "caption": caption}, timeout=30)
+    except Exception as e:
+        print("send_photo_url err", e)
+
+
+def send_photo_file(chat_id: int, path: str, caption: str = "") -> None:
+    try:
+        with open(path, "rb") as f:
+            requests.post(f"{TG_API}/sendPhoto", data={"chat_id": chat_id, "caption": caption},
+                          files={"photo": f}, timeout=45)
+    except Exception as e:
+        print("send_photo_file err", e)
+
+
+def _beds(l: dict[str, Any]) -> str:
+    b = l.get("bedrooms")
+    return "Studio" if b == 0 else (f"{b} BR" if b else "")
+
+
+BROWSE = os.path.expanduser("~/.claude/skills/gstack/browse/dist/browse")
+
+
+def make_map_image(short: list, path: str = "/tmp/apt-map.png") -> Optional[str]:
+    """Render a dark map with a pin per shortlist item and screenshot it via the browse binary."""
+    import json as _j
+    import subprocess
+    pts = [l for l in short if l.get("lat") and l.get("lng")]
+    if not pts:
+        return None
+    pts_json = _j.dumps([{"lat": l["lat"], "lng": l["lng"], "price": l["priceUsd"],
+                          "perfect": bool(l.get("isPerfect"))} for l in pts])
+    html = f"""<!doctype html><html><head><meta charset="utf8">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>html,body,#m{{height:100%;margin:0;background:#080b10}}
+.lbl{{background:#11161f;border:1px solid #263241;color:#eef2f7;font:600 11px ui-monospace,monospace;border-radius:6px;padding:1px 6px}}
+.lbl.perfect{{background:#f5b544;color:#1a1204;border-color:#f5b544}}
+.leaflet-tooltip-top:before{{display:none}}</style></head>
+<body><div id="m"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var pts={pts_json};
+var m=L.map('m',{{zoomControl:false,attributionControl:false}});
+L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}.png').addTo(m);
+var g=[];
+pts.forEach(function(p){{
+  var c=L.circleMarker([p.lat,p.lng],{{radius:p.perfect?10:7,color:p.perfect?'#f5b544':'#4fd8e8',
+    fillColor:p.perfect?'#f5b544':'#11161f',fillOpacity:0.95,weight:2}}).addTo(m);
+  c.bindTooltip('$'+p.price,{{permanent:true,direction:'top',className:p.perfect?'lbl perfect':'lbl'}});
+  g.push(c);
+}});
+m.fitBounds(L.featureGroup(g).getBounds().pad(0.35));
+</script></body></html>"""
+    try:
+        with open("/tmp/apt-map.html", "w") as f:
+            f.write(html)
+        subprocess.run([BROWSE, "viewport", "760x480"], timeout=20, capture_output=True)
+        subprocess.run([BROWSE, "goto", "file:///tmp/apt-map.html"], timeout=30, capture_output=True)
+        time.sleep(2.5)
+        subprocess.run([BROWSE, "screenshot", path], timeout=30, capture_output=True)
+        return path if os.path.exists(path) else None
+    except Exception as e:
+        print("make_map_image err", e)
+        return None
+
+
 # ------------------------------------------------------------------- llm seam
 def llm_parse(text: str) -> Optional[dict[str, Any]]:
     """Parse a free-text request into search criteria. Nemotron if configured, else None."""
@@ -181,6 +251,16 @@ def run_search(chat_id: int, criteria: dict[str, Any]) -> None:
             lines.append(f"{i}) {l['title'][:60]} — ${l['priceUsd']}/mo {br} · {l.get('neighborhood','')}")
         lines.append("\nReply with 1, 2, or 3 and I'll reach out and negotiate.")
         send(chat_id, "\n".join(lines))
+        # pictures + prices for each, then a map of where they are
+        for i, l in enumerate(short, 1):
+            cap = f"{i}) {l['title'][:64]}\n${l['priceUsd']}/mo · {_beds(l)} · {l.get('neighborhood', '')}"
+            send_photo_url(chat_id, l.get("imageUrl"), cap)
+        try:
+            mp = make_map_image(short)
+            if mp:
+                send_photo_file(chat_id, mp, "Where they are on the map")
+        except Exception as e:
+            print("map send err", e)
     except Exception as e:
         send(chat_id, f"Search error: {e}")
 
@@ -214,7 +294,15 @@ def run_negotiation(chat_id: int, listing: dict[str, Any], criteria: dict[str, A
             seen_events = len(evs)
             if c.get("done"):
                 if c.get("reply"):
-                    send(chat_id, f"✅ {c['reply']}")
+                    send(chat_id, f"✅ Booked! {c['reply']}")
+                    price = c.get("agreed_price") or (f"${listing['priceUsd']}/mo" if listing.get("priceUsd") else "")
+                    vt = c.get("viewing_time")
+                    cap = listing.get("title", "")[:64]
+                    if price:
+                        cap += f"\n{price}"
+                    if vt:
+                        cap += f"\nViewing: {vt}"
+                    send_photo_url(chat_id, listing.get("imageUrl"), cap)
                 else:
                     send(chat_id, f"Negotiation ended: {c.get('phase')}")
                 STATE[chat_id]["phase"] = "done"
