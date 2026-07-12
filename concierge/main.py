@@ -54,29 +54,58 @@ CITY_CENTERS = {
 
 
 # ---------------------------------------------------------------- Telegram I/O
-def send(chat_id: int, text: str) -> None:
+def md_safe(s: Any) -> str:
+    """Neutralize Markdown-breaking chars in free-text (listing titles etc.).
+
+    Telegram's legacy 'Markdown' parse mode 400s on unbalanced _ * [ ] ` — so we
+    strip them from any user/listing-supplied text we drop into a formatted message.
+    """
+    return re.sub(r"[_*\[\]`]", " ", str(s or "")).strip()
+
+
+def send(chat_id: int, text: str, parse_mode: Optional[str] = "Markdown") -> None:
+    payload = {"chat_id": chat_id, "text": text, "disable_web_page_preview": False}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     try:
-        requests.post(f"{TG_API}/sendMessage", json={"chat_id": chat_id, "text": text,
-                      "disable_web_page_preview": False}, timeout=15)
+        r = requests.post(f"{TG_API}/sendMessage", json=payload, timeout=15)
+        # If odd formatting makes Telegram 400, retry once as plain text so we
+        # never silently drop a message.
+        if parse_mode and r.status_code == 400:
+            payload.pop("parse_mode", None)
+            requests.post(f"{TG_API}/sendMessage", json=payload, timeout=15)
     except Exception as e:
         print("send err", e)
 
 
-def send_photo_url(chat_id: int, url: Optional[str], caption: str = "") -> None:
+def send_photo_url(chat_id: int, url: Optional[str], caption: str = "",
+                   parse_mode: Optional[str] = "Markdown") -> None:
     if not url:
         return
+    data = {"chat_id": chat_id, "photo": url, "caption": caption}
+    if parse_mode:
+        data["parse_mode"] = parse_mode
     try:
-        requests.post(f"{TG_API}/sendPhoto",
-                      data={"chat_id": chat_id, "photo": url, "caption": caption}, timeout=30)
+        r = requests.post(f"{TG_API}/sendPhoto", data=data, timeout=30)
+        if parse_mode and r.status_code == 400:
+            data.pop("parse_mode", None)
+            requests.post(f"{TG_API}/sendPhoto", data=data, timeout=30)
     except Exception as e:
         print("send_photo_url err", e)
 
 
-def send_photo_file(chat_id: int, path: str, caption: str = "") -> None:
+def send_photo_file(chat_id: int, path: str, caption: str = "",
+                    parse_mode: Optional[str] = "Markdown") -> None:
     try:
+        data = {"chat_id": chat_id, "caption": caption}
+        if parse_mode:
+            data["parse_mode"] = parse_mode
         with open(path, "rb") as f:
-            requests.post(f"{TG_API}/sendPhoto", data={"chat_id": chat_id, "caption": caption},
-                          files={"photo": f}, timeout=45)
+            r = requests.post(f"{TG_API}/sendPhoto", data=data, files={"photo": f}, timeout=45)
+        if parse_mode and r.status_code == 400:
+            data.pop("parse_mode", None)
+            with open(path, "rb") as f:
+                requests.post(f"{TG_API}/sendPhoto", data=data, files={"photo": f}, timeout=45)
     except Exception as e:
         print("send_photo_file err", e)
 
@@ -84,6 +113,16 @@ def send_photo_file(chat_id: int, path: str, caption: str = "") -> None:
 def _beds(l: dict[str, Any]) -> str:
     b = l.get("bedrooms")
     return "Studio" if b == 0 else (f"{b} BR" if b else "")
+
+
+def _parse_price(raw: Any) -> Optional[int]:
+    """Pull an integer dollar amount out of an agreed-price string like '$2,400' or '2400'."""
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        return int(raw)
+    digits = re.sub(r"[^\d]", "", str(raw))
+    return int(digits) if digits else None
 
 
 BROWSE = os.path.expanduser("~/.claude/skills/gstack/browse/dist/browse")
@@ -101,9 +140,12 @@ def make_map_image(short: list, path: str = "/tmp/apt-map.png") -> Optional[str]
     html = f"""<!doctype html><html><head><meta charset="utf8">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>html,body,#m{{height:100%;margin:0;background:#080b10}}
-.lbl{{background:#11161f;border:1px solid #263241;color:#eef2f7;font:600 11px ui-monospace,monospace;border-radius:6px;padding:1px 6px}}
-.lbl.perfect{{background:#f5b544;color:#1a1204;border-color:#f5b544}}
-.leaflet-tooltip-top:before{{display:none}}</style></head>
+/* Price pins mirror the web app: amber = best match, muted dark pill for the rest. */
+.pin{{display:inline-block;white-space:nowrap;font:700 12px ui-monospace,monospace;
+  border-radius:999px;padding:3px 9px;box-shadow:0 2px 6px rgba(0,0,0,.55);
+  background:#141a24;color:#f4f7fb;border:1px solid #2a3646}}
+.pin.perfect{{background:#f5b544;color:#1a1204;border-color:#f5b544;
+  box-shadow:0 2px 10px rgba(245,181,68,.55)}}</style></head>
 <body><div id="m"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -112,10 +154,10 @@ var m=L.map('m',{{zoomControl:false,attributionControl:false}});
 L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}.png').addTo(m);
 var g=[];
 pts.forEach(function(p){{
-  var c=L.circleMarker([p.lat,p.lng],{{radius:p.perfect?10:7,color:p.perfect?'#f5b544':'#4fd8e8',
-    fillColor:p.perfect?'#f5b544':'#11161f',fillOpacity:0.95,weight:2}}).addTo(m);
-  c.bindTooltip('$'+p.price,{{permanent:true,direction:'top',className:p.perfect?'lbl perfect':'lbl'}});
-  g.push(c);
+  var cls=p.perfect?'pin perfect':'pin';
+  var icon=L.divIcon({{className:'',html:'<span class="'+cls+'">$'+p.price+'</span>',iconSize:null}});
+  var mk=L.marker([p.lat,p.lng],{{icon:icon,zIndexOffset:p.perfect?1000:0}}).addTo(m);
+  g.push(mk);
 }});
 m.fitBounds(L.featureGroup(g).getBounds().pad(0.35));
 </script></body></html>"""
@@ -226,7 +268,7 @@ def run_search(chat_id: int, criteria: dict[str, Any]) -> None:
             return
         STATE[chat_id]["discoverId"] = sid
         send(chat_id, f"🔎 On it — searching {criteria['city']} under ${criteria['budget']} for "
-                      f"{criteria['headcount']}. Watch me live: {NEXT_URL}")
+                      f"{criteria['headcount']}. Watch me live: {NEXT_URL}", parse_mode=None)
         deadline = time.time() + 150
         listings = None
         while time.time() < deadline:
@@ -245,15 +287,20 @@ def run_search(chat_id: int, criteria: dict[str, Any]) -> None:
         STATE[chat_id]["shortlist"] = short
         STATE[chat_id]["criteria"] = criteria
         STATE[chat_id]["phase"] = "shortlist"
-        lines = ["Here are the top 3 that fit:"]
+        lines = ["*Here are the top 3 that fit:*"]
         for i, l in enumerate(short, 1):
             br = "Studio" if l.get("bedrooms") == 0 else (f"{l.get('bedrooms')}BR" if l.get("bedrooms") else "")
-            lines.append(f"{i}) {l['title'][:60]} — ${l['priceUsd']}/mo {br} · {l.get('neighborhood','')}")
+            title = md_safe(l.get("title", ""))[:60]
+            hood = md_safe(l.get("neighborhood", ""))
+            tag = " ⭐" if l.get("isPerfect") else ""
+            lines.append(f"{i}) {title} — *${l['priceUsd']}/mo* {br} · {hood}{tag}")
         lines.append("\nReply with 1, 2, or 3 and I'll reach out and negotiate.")
         send(chat_id, "\n".join(lines))
         # pictures + prices for each, then a map of where they are
         for i, l in enumerate(short, 1):
-            cap = f"{i}) {l['title'][:64]}\n${l['priceUsd']}/mo · {_beds(l)} · {l.get('neighborhood', '')}"
+            title = md_safe(l.get("title", ""))[:64]
+            hood = md_safe(l.get("neighborhood", ""))
+            cap = f"{i}) {title}\n*${l['priceUsd']}/mo* · {_beds(l)} · {hood}"
             send_photo_url(chat_id, l.get("imageUrl"), cap)
         try:
             mp = make_map_image(short)
@@ -277,8 +324,9 @@ def run_negotiation(chat_id: int, listing: dict[str, Any], criteria: dict[str, A
             return
         STATE[chat_id]["contactId"] = cid
         STATE[chat_id]["phase"] = "negotiating"
-        send(chat_id, f"🤝 Reaching out about '{listing['title'][:50]}' and negotiating now. "
-                      f"Watch the agent: {poll_contact(cid).get('agent_view_url','')}")
+        send(chat_id, f"🤝 Reaching out about '{md_safe(listing.get('title',''))[:50]}' and "
+                      f"negotiating now. Watch the agent: "
+                      f"{poll_contact(cid).get('agent_view_url','')}", parse_mode=None)
         deadline = time.time() + 480
         last_advance = 0.0
         seen_events = 0
@@ -290,21 +338,34 @@ def run_negotiation(chat_id: int, listing: dict[str, Any], criteria: dict[str, A
             for e in evs[seen_events:]:
                 txt = e.get("text", "")
                 if txt.startswith(("Owner:", "Agent:")):
-                    send(chat_id, txt)
+                    send(chat_id, txt, parse_mode=None)  # raw convo text, no Markdown parsing
             seen_events = len(evs)
             if c.get("done"):
                 if c.get("reply"):
-                    send(chat_id, f"✅ Booked! {c['reply']}")
+                    # A24 — compute the negotiated savings for a punchy win callout.
+                    asking = listing.get("priceUsd")
+                    agreed = _parse_price(c.get("agreed_price"))
+                    reply = md_safe(c.get("reply"))
+                    if agreed and asking and agreed < asking:
+                        savings = int(asking) - agreed
+                        send(chat_id,
+                             f"💰 *Negotiated ${savings}/mo off — booked at ${agreed}!*\n\n"
+                             f"✅ *Booked!* {reply}")
+                    else:
+                        send(chat_id, f"✅ *Booked!* {reply}")
                     price = c.get("agreed_price") or (f"${listing['priceUsd']}/mo" if listing.get("priceUsd") else "")
                     vt = c.get("viewing_time")
-                    cap = listing.get("title", "")[:64]
-                    if price:
-                        cap += f"\n{price}"
+                    cap_title = md_safe(listing.get("title", ""))[:64]
+                    cap = cap_title
+                    if agreed and asking and agreed < asking:
+                        cap += f"\n💰 *${int(asking) - agreed}/mo saved* — booked at *${agreed}*"
+                    elif price:
+                        cap += f"\n*{md_safe(price)}*"
                     if vt:
-                        cap += f"\nViewing: {vt}"
+                        cap += f"\nViewing: {md_safe(vt)}"
                     send_photo_url(chat_id, listing.get("imageUrl"), cap)
                 else:
-                    send(chat_id, f"Negotiation ended: {c.get('phase')}")
+                    send(chat_id, f"Negotiation ended: {md_safe(c.get('phase'))}")
                 STATE[chat_id]["phase"] = "done"
                 return
             # auto-advance: when awaiting the owner, periodically re-check the screen
@@ -348,6 +409,16 @@ def main() -> None:
         raise SystemExit("Set TELEGRAM_BOT_TOKEN in concierge/.env (create a bot via @BotFather).")
     print("Concierge up. Owner:", OWNER_WHATSAPP or "(unset!)",
           "| Nemotron:", "on" if NEMOTRON_BASE and NEMOTRON_KEY else "heuristic")
+    # A19 — harden the front door: kill any stray webhook so it can't swallow our
+    # getUpdates. drop_pending_updates clears a backlog queued while a webhook was set.
+    try:
+        wr = requests.post(f"{TG_API}/deleteWebhook",
+                           json={"drop_pending_updates": True}, timeout=15)
+        ok = wr.json().get("ok")
+        print(f"deleteWebhook(drop_pending_updates=true) -> ok={ok} "
+              f"(getUpdates long-poll is now the sole consumer)")
+    except Exception as e:
+        print("deleteWebhook err (continuing to long-poll anyway):", e)
     offset = 0
     while True:
         try:

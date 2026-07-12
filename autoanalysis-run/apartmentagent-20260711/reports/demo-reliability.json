@@ -1,0 +1,76 @@
+{
+  "angle": "demo-reliability",
+  "status": "ok",
+  "proposals": [
+    {
+      "title": "Ship a one-command H session sweep (kill zombies before demo)",
+      "category": "backend/reliability",
+      "what": "Add a sweep.sh (or /admin/sweep route) that GETs /api/v2/sessions?status=running and DELETEs each, then prints quota active count. Run it <2 min before demo and after any aborted rehearsal.",
+      "why": "H caps at 3 concurrent sessions; a single leaked/zombie session (crash between start and delete) silently blocks discovery OR the negotiation money-shot. The plan documents a sweep but it is not coded anywhere — under stage pressure a copy-pasted curl pipe is error-prone.",
+      "evidence": ["contact-svc/main.py:331", "lib/discovery.ts:235", ".omc/plans/concierge-demo.md:71"],
+      "effort": "S",
+      "impact": 5,
+      "surfaces": ["contact-svc", "lib/discovery.ts", "preflight"]
+    },
+    {
+      "title": "Make explicit that the desktop negotiation needs a REAL inbound WhatsApp message",
+      "category": "ux/fallback",
+      "what": "Rename/annotate the UI 'Owner replied' button and document that in desktop mode the agent reads the screen (main.py:203) and only replies to an actual unanswered owner message — the reply hint does not put text on screen. Put the friend on the critical path with a co-presenter backup holding the owner phone.",
+      "why": "Presenters may click 'Owner replied' and wait, but the desktop turn reports awaiting_owner because no real message is on screen. This is the single most likely on-stage stall.",
+      "evidence": ["contact-svc/main.py:203", "contact-svc/main.py:283", "app/page.tsx:187"],
+      "effort": "S",
+      "impact": 5,
+      "surfaces": ["app/page.tsx", "contact-svc", "runbook"]
+    },
+    {
+      "title": "Fix README/code drift on contact surface (desktop app vs Chrome WhatsApp Web)",
+      "category": "backend/reliability",
+      "what": "Edit README:31 to state the default is the WhatsApp desktop app (CONTACT_MODE=desktop), not Chrome WhatsApp Web via ~/.hai/chrome-profile. Keep the browser path documented only as an env-gated insurance option.",
+      "why": "The stale README could send the operator to log into the wrong WhatsApp surface the morning of the demo, wasting setup time and leaving the actual desktop app unprepared.",
+      "evidence": ["README.md:31", "contact-svc/main.py:49", ".omc/plans/desktop-whatsapp-contact.md:16"],
+      "effort": "S",
+      "impact": 3,
+      "surfaces": ["README.md", "docs"]
+    },
+    {
+      "title": "Enforce single-process run mode + a /health-based go/no-go preflight",
+      "category": "backend/reliability",
+      "what": "Document and script: run npm run dev (single Node process, the discovery store lives in globalThis), one uvicorn, one concierge; then gate the demo on curl localhost:8000/health returning desktop_ready:true, accessibility:true, screen_recording:true, whatsapp_installed:true, hai_key_present:true.",
+      "why": "next start with multiple workers would not share the in-memory discovery store, dropping in-flight session ids. Revoked macOS Accessibility/Screen-Recording (reset by any python3.13 update) makes keystrokes fail silently with no error — /health is the only pre-check.",
+      "evidence": ["lib/discovery.ts:31", "contact-svc/main.py:396", "contact-svc/main.py:415"],
+      "effort": "S",
+      "impact": 4,
+      "surfaces": ["preflight", "contact-svc/health", "ops"]
+    },
+    {
+      "title": "Harden the Telegram front-door: deleteWebhook + single consumer + kill strays",
+      "category": "backend/reliability",
+      "what": "Before starting concierge, call deleteWebhook and pkill -f concierge/main.py so exactly one getUpdates consumer runs; add a tiny space/retry between the shortlist photo sends to avoid a Telegram 429 dropping an image.",
+      "why": "Telegram getUpdates is single-consumer; a leftover process or a set webhook causes 409 conflicts and the bot appears dead. The shortlist burst (text + 3 photos + map) can trip the per-chat rate limit with no retry in send().",
+      "evidence": ["concierge/main.py:354", "concierge/main.py:57", "concierge/main.py:253"],
+      "effort": "S",
+      "impact": 3,
+      "surfaces": ["concierge", "preflight"]
+    },
+    {
+      "title": "Pre-warm CDN/geocode paths and isolate the shared browse binary",
+      "category": "ux/fallback",
+      "what": "Warm the UI once on venue wifi so Leaflet/cartocdn tiles and Nominatim geocodes cache; do not run any gstack /browse or /qa skill during the demo since make_map_image shells out to the same single browse daemon.",
+      "why": "The concierge map image depends on the shared browse binary plus unpkg/cartocdn tiles and OSM geocoding — all internet + single-daemon. Contention or a blocked CDN drops the map image (non-fatal) and can grey out the UI map tiles.",
+      "evidence": ["concierge/main.py:89", "concierge/main.py:125", "lib/geocode.ts:19"],
+      "effort": "S",
+      "impact": 2,
+      "surfaces": ["concierge/map", "lib/geocode.ts", "UI map"]
+    },
+    {
+      "title": "Rehearse the network-loss and 429 fallbacks; keep a cued backup video",
+      "category": "ux/fallback",
+      "what": "In rehearsal, kill wifi mid-discovery to confirm the cached fallback + badge flip, and force a negotiation 429 to confirm it fails visibly. Since negotiation has no cached fallback, keep a 2-4x recorded clean run cued at 0:00 on a second space, plus a paired phone hotspot.",
+      "why": "Discovery degrades gracefully to cached listings, but negotiation and Telegram do not degrade — on quota/429/network loss they simply fail. The only safe net for the money-shot is the recorded video and a hotspot.",
+      "evidence": ["lib/discovery.ts:226", "app/page.tsx:106", "contact-svc/main.py:340"],
+      "effort": "M",
+      "impact": 4,
+      "surfaces": ["rehearsal", "backup-video", "network"]
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+/autoanalysis apply run=apartmentagent-20260711 (jury-selected by agent)
+A1=vg A2=g A3=g A4=g A5=vg A6=g A10=vg A11=g A15=vg A19=g A24=vg A27=g A30=vg A31=g A32=g A33=g A34=g A35=g A36=g A37=g A38=g
+(skipped as staging/manual not code: A8,A9,A13,A14,A16,A17,A20,A21,A22,A23,A25,A26,A28,A29,A7,A12,A18 — several folded into the above)

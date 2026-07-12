@@ -72,7 +72,7 @@ export default function AgentViewPanel({
         <div ref={endRef} />
       </div>
       <footer>
-        <span className="badge live" style={{ borderColor: "var(--border-2)" }}>{statusLabel}</span>
+        <span className="badge agent">{statusLabel}</span>
         {action && (
           <button className="ghost" onClick={action.onClick}>
             {action.label}

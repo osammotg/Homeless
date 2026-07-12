@@ -1,0 +1,76 @@
+{
+  "angle": "hcompany-judge",
+  "status": "ok",
+  "proposals": [
+    {
+      "title": "Lead the demo with the desktop WhatsApp negotiation on a split-screen",
+      "category": "content/pitch",
+      "what": "Restructure the 90s demo so the money shot is: Telegram pick -> real Mac WhatsApp desktop app (shown side-by-side) driven by the H desktop agent through a multi-turn haggle -> confirmation back in Telegram. Demote the browser search to a 5-second 'proof the session is live' flash.",
+      "why": "Every Track-2 team will demo web-surfer clicking a website; an H judge finds that unremarkable. Computer-use driving a native NO-API app (WhatsApp desktop) is the un-fakeable differentiator we cannot dismiss as a browser macro. The desktop surface exists in code but isn't framed as the hero.",
+      "evidence": ["contact-svc/main.py:297 desktop env {kind:desktop,host:user_device}", "contact-svc/main.py:203 _respond_task reads on-screen conversation", "README.md:250 current demo script leads with map/pins"],
+      "effort": "S",
+      "impact": 5,
+      "surfaces": ["concierge/main.py", "contact-svc/main.py", "README.md"]
+    },
+    {
+      "title": "Prove discovery is genuinely live (or state it's pre-indexed) — never let a judge catch the cache fallback",
+      "category": "demo",
+      "what": "Pre-warm one real live discovery session seconds before demo (or scope it to 3-4 listings that finish inside max_time_s), click the platform.hcompany.ai Agent View link on stage, and deliberately show the 'live . Craigslist (H agent)' badge. If live can't be guaranteed, be upfront that listings are pre-indexed and put all computer-use weight on the WhatsApp negotiation.",
+      "why": "Their own README says Craigslist CAPTCHAs 'within minutes' and the code has a full fallbackListings() path that loads data/listings.json and rewrites permalinks. A skeptical judge's first question is 'was that map live or from a file?' — if fallback, one of two computer-use surfaces evaporates and Track-2 alignment drops.",
+      "evidence": ["lib/discovery.ts:56 fallbackListings from listings.json", "lib/discovery.ts:221-229 fallback on empty/failed", "README.md:110 'CAPTCHA / IP blocks within minutes'", "app/page.tsx:219 badge live vs cached"],
+      "effort": "M",
+      "impact": 5,
+      "surfaces": ["lib/discovery.ts", "app/page.tsx"]
+    },
+    {
+      "title": "Neutralize _force_send() so the agent's own send is the visible action",
+      "category": "backend",
+      "what": "Gate the osascript 'key code 36' send behind an 'only if the agent reported replied=false' check so it never front-runs a successful agent send, and keep it silent in the demo. Show the H agent clicking the WhatsApp send button itself.",
+      "why": "A fatal Q&A gotcha: 'did the H agent send the message, or your AppleScript?' If the osascript ever saves a failed agent send, the un-fakeable action wasn't done by computer-use. This single helper can reframe the strongest moment as 'they scripted it'.",
+      "evidence": ["contact-svc/main.py:161 _force_send osascript key code 36", "contact-svc/main.py:330 _force_send called after every desktop turn"],
+      "effort": "S",
+      "impact": 4,
+      "surfaces": ["contact-svc/main.py"]
+    },
+    {
+      "title": "Retire the web UI's hardcoded 'Owner replied' string for judging",
+      "category": "ux/demo",
+      "what": "Judge on the Telegram path with a real teammate owner replying on real WhatsApp. Hide or disable simulateReply() (the canned 'Yes! It's available...' string) in the Next.js app during the live demo so no scripted reply is visible to the room.",
+      "why": "app/page.tsx injects a hardcoded owner reply. If the flashier web UI is demoed, an H judge sees a scripted string and files the whole negotiation as fake — even though the Telegram path genuinely re-reads the real screen via a fresh H session.",
+      "evidence": ["app/page.tsx:187 simulateReply canned string", "app/page.tsx:291 'Owner replied' button wired to simulateReply", "contact-svc/main.py:470 real reply endpoint fires a fresh screen-reading turn"],
+      "effort": "S",
+      "impact": 4,
+      "surfaces": ["app/page.tsx"]
+    },
+    {
+      "title": "Make the negotiation visibly haggle with real price movement",
+      "category": "feature/negotiation",
+      "what": "Script the teammate-owner to push back once (counter above ask) so the agent visibly counters under budget: e.g. asking $2450 -> agent proposes ~$2327 -> owner agrees. Surface each price step in Telegram (Owner:/Agent: lines already stream).",
+      "why": "The booking is staged with a consenting teammate (correct ethics), so a judge knows the owner is a plant — the negotiation must FEEL real to survive. One message + a thumbs-up reads as scripted; visible multi-turn price movement reads as a real agent negotiating. The policy code already supports counters and a budget cap.",
+      "evidence": ["contact-svc/main.py:137 _negotiation_policy with discount ask + budget cap", "concierge/main.py:290 streams Owner:/Agent: milestones to Telegram", "contact-svc/main.py:79 answer_format has agreed_price/viewing_time"],
+      "effort": "S",
+      "impact": 4,
+      "surfaces": ["contact-svc/main.py", "concierge/main.py"]
+    },
+    {
+      "title": "Foreground the session-lifecycle + ops sophistication in the pitch",
+      "category": "content/pitch",
+      "what": "In the 90s pitch, name the hard insight out loud: 'H sessions end after they answer, so each owner reply spins up a fresh desktop session that re-reads the whole chat on screen.' Mention the 3-slot concurrency handling only if a judge probes.",
+      "why": "H judges built this platform; the fresh-session-per-turn design and the max_time_s/DELETE-session/serialization work signal the team used the real API hard, not a mock. Saying it explicitly converts hidden engineering credit into visible Technicality points with the people who recognize it.",
+      "evidence": ["contact-svc/main.py:11-21 fresh-session-per-turn rationale", "lib/discovery.ts:136 max_time_s zombie-fix comment", "lib/discovery.ts:235 DELETE session to free concurrency slot", "contact-svc/main.py:76 _DESKTOP_BUSY serialization lock"],
+      "effort": "S",
+      "impact": 3,
+      "surfaces": ["README.md", "concierge/main.py"]
+    },
+    {
+      "title": "Consolidate to one front-door narrative (Telegram) to avoid a 'which is the product?' judge doubt",
+      "category": "ux/demo",
+      "what": "Present Telegram as THE product front door (chat in -> live agents -> chat out) and frame the Next.js app as the operator's live view you flash briefly to prove the browser session is real. Don't demo both flows as co-equal.",
+      "why": "Two entry points (web app + Telegram bot) split the narrative and invite the judge to wonder which is the real thing — and the web path is the more fakeable one. A single clean story reads as a finished product, not two half-demos.",
+      "evidence": ["concierge/main.py Telegram front-door orchestrator", "app/page.tsx full web UI with its own contact flow", "README.md:13 'Two processes' framing"],
+      "effort": "S",
+      "impact": 3,
+      "surfaces": ["concierge/main.py", "app/page.tsx", "README.md"]
+    }
+  ]
+}

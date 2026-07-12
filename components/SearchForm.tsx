@@ -60,7 +60,7 @@ export default function SearchForm({
           />
         </div>
       </div>
-      <button className="primary" type="submit" disabled={loading} style={{ width: "100%" }}>
+      <button className={`primary ${loading ? "loading" : ""}`} type="submit" disabled={loading} style={{ width: "100%" }}>
         {loading ? (
           <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
             <span className="spinner" /> Agent is searching Craigslist…

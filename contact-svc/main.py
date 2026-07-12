@@ -229,13 +229,60 @@ def _extract(obj: Any, *names: str) -> Any:
     return None
 
 
-def _event_to_text(event: Any) -> str:
+# Event types that are pure noise for the human-facing Agent View (metrics,
+# heartbeats, keepalives, token counters). We drop these entirely.
+_NOISE_EVENT_TYPES = {
+    "metricsupdateevent", "metricsupdate", "metrics",
+    "heartbeat", "heartbeatevent", "keepalive", "keepaliveevent",
+    "ping", "pong", "tokenusage", "tokenusageevent", "usage", "usageevent",
+}
+
+# Known event types -> short readable step-line prefixes for the Agent View.
+_EVENT_TYPE_LABELS = {
+    "thoughtevent": "Thinking",
+    "thinkingevent": "Thinking",
+    "actionevent": "Action",
+    "toolcallevent": "Action",
+    "toolusevent": "Action",
+    "toolresultevent": "Result",
+    "observationevent": "Observed",
+    "screenshotevent": "Looked at screen",
+    "messageevent": "Message",
+    "agentmessageevent": "Message",
+    "usermessageevent": "You",
+    "answerevent": "Answer",
+    "statusevent": "Status",
+    "erroreevent": "Error",
+    "errorevent": "Error",
+}
+
+
+def _event_to_text(event: Any) -> Optional[str]:
+    """Turn a raw H event into a short, human-readable Agent View line.
+
+    Returns None for noise/metrics/heartbeat/keepalive events so the caller can
+    skip them instead of dumping bare class names into the contact's view.
+    """
     etype = _extract(event, "type", "kind") or "event"
-    for f in ("message", "text", "thought", "action", "summary", "content"):
+    etype_key = str(etype).strip().lower()
+    if etype_key in _NOISE_EVENT_TYPES:
+        return None
+
+    # (a) Prefer human-readable text fields when present.
+    for f in ("message", "thought", "action", "summary", "content", "text"):
         v = _extract(event, f)
         if isinstance(v, str) and v.strip():
-            return f"{etype}: {v.strip()}"
-    return str(etype)
+            label = _EVENT_TYPE_LABELS.get(etype_key)
+            body = v.strip()
+            return f"{label}: {body}" if label else body
+
+    # (b) Map known event types to a short readable step line.
+    label = _EVENT_TYPE_LABELS.get(etype_key)
+    if label:
+        return label
+
+    # (c) Unknown, text-less event with no useful payload — treat as noise.
+    return None
 
 
 def _http_delete_session(hai_session_id: str) -> None:
@@ -264,6 +311,12 @@ def _apply_turn_result(conv: dict[str, Any], answer: Any) -> None:
     if not isinstance(data, dict):
         data = {}
     with _LOCK:
+        # Record whether the AGENT itself reported sending a message this turn.
+        # Judge-credibility: if the agent sent it, that visible send should stand
+        # on its own — we must NOT let our osascript _force_send() fallback fire
+        # and muddy "did the agent send it, or your script?". Default False so a
+        # missing/unknown answer still lets the safety net run.
+        conv["_last_replied"] = bool(data.get("replied"))
         if data.get("owner_said"):
             _add_event_nl(conv, f"Owner: {data['owner_said']}")
         if data.get("we_said"):
@@ -292,6 +345,9 @@ def _run_turn(conv_id: str, task: str, opening: bool) -> None:
     """Run ONE negotiation turn as a fresh H desktop session."""
     conv = CONV[conv_id]
     handle_box: dict[str, Any] = {}
+    # Reset per-turn: default False so the safety net still fires on a
+    # missing/unknown/failed answer; only a fresh replied=true suppresses it.
+    conv["_last_replied"] = False
     try:
         client = Client()
         env = (
@@ -326,7 +382,10 @@ def _run_turn(conv_id: str, task: str, opening: bool) -> None:
             threading.Timer(MAX_TIME_S + WATCHDOG_GRACE_S,
                             lambda: (getattr(handle, "cancel", lambda: None)())).start()
             _stream_turn(conv, handle)
-            if conv["mode"] == "desktop":
+            # Only fire the osascript fallback if the AGENT did NOT report sending
+            # (replied=false / unknown). If the agent sent, its own visible send
+            # stays the action — keeps our claim credible under judge scrutiny.
+            if conv["mode"] == "desktop" and not conv.get("_last_replied"):
                 _force_send()  # safety net: ensure a composed message actually sent
             _http_delete_session(hid or "")  # free the slot after the turn
         else:
@@ -335,7 +394,7 @@ def _run_turn(conv_id: str, task: str, opening: bool) -> None:
             except TypeError:
                 result = client.run_session(agent=agent, messages=messages)
             _finalize_turn(conv, result)
-            if conv["mode"] == "desktop":
+            if conv["mode"] == "desktop" and not conv.get("_last_replied"):
                 _force_send()
     except Exception as exc:
         with _LOCK:
@@ -357,7 +416,14 @@ def _stream_turn(conv: dict[str, Any], handle: Any) -> None:
     if callable(stream):
         try:
             for event in stream():
-                _add_event(conv, _event_to_text(event))
+                line = _event_to_text(event)
+                if line is None:  # noise/metrics/heartbeat — skip entirely
+                    continue
+                # Skip consecutive duplicate lines so the view stays readable.
+                last = conv["events"][-1]["text"] if conv["events"] else None
+                if line == last:
+                    continue
+                _add_event(conv, line)
         except Exception as exc:
             _add_event(conv, f"stream ended: {type(exc).__name__}: {exc}")
     result = None
@@ -434,6 +500,7 @@ def contact(req: ContactRequest) -> dict[str, str]:
         "headcount": req.headcount, "budget": req.budget, "price": req.price,
         "current_session_id": None, "agent_view_url": None,
         "reply": None, "agreed_price": None, "viewing_time": None, "error": None,
+        "_last_replied": False,  # did the agent's own turn report sending? gates _force_send()
         "created_at": _now(),
     }
     CONV[conv_id] = c

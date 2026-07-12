@@ -1,0 +1,96 @@
+{
+  "angle": "demo-polish",
+  "status": "ok",
+  "proposals": [
+    {
+      "title": "Kill the \"AgentEvent\" wall — humanize the Agent View stream",
+      "category": "ux/agent-view",
+      "what": "In lib/discovery.ts `eventText()` (and the twin `_event_text` in contact-svc/main.py), most H events carry no message/text/thought field, so the function falls through to `return String(type)` and the marquee panel renders 20+ identical lines: \"AgentEvent\", \"AgentEvent\", \"MetricsUpdateEvent\". Replace with (1) a lookup map that turns known types into human milestones (AgentStartedEvent -> \"Agent online — browser booted\", RequestStartEvent -> \"Dispatching to H web-surfer\", etc.), and (2) drop events that resolve to a bare type name so only meaningful steps show. Prefer surfacing the agent's actual thought/action when present.",
+      "why": "The Agent View is the whole 'wow' of the demo — it is meant to read like a machine working. Right now it reads like a raw debug log of repeated class names, which actively cheapens the marquee feature. See evidence: after 48s the panel is a solid column of 'AgentEvent'/'MetricsUpdateEvent'.",
+      "evidence": ["evidence/demo-polish/03-agentview-later.png", "evidence/demo-polish/02-agentview.png"],
+      "effort": "M",
+      "impact": 5,
+      "surfaces": ["lib/discovery.ts", "contact-svc/main.py"]
+    },
+    {
+      "title": "De-dupe + throttle the event feed so steps land like beats",
+      "category": "ux/agent-view",
+      "what": "Even after humanizing, collapse consecutive identical/near-identical events into one line with a count (\"Scanning listings x6\"), and skip pure MetricsUpdateEvent telemetry. In AgentViewPanel.tsx optionally reveal each new event with a short fade/slide so lines arrive as discrete beats rather than a jumping list.",
+      "why": "The stream currently emits many low-signal events per second; a wall that scrolls faster than a judge can read feels like noise, not progress. A handful of clean, sequential milestones reads as 'the agent is deliberately doing steps.'",
+      "evidence": ["evidence/demo-polish/03-agentview-later.png"],
+      "effort": "S",
+      "impact": 4,
+      "surfaces": ["lib/discovery.ts", "components/AgentViewPanel.tsx", "app/globals.css"]
+    },
+    {
+      "title": "Make the map alive during discovery — scanning sweep + ghost pins",
+      "category": "design/map",
+      "what": "During the 'discovering' phase the entire right ~75% of the screen is a dead, empty map for 60-120s — the exact window a judge is watching most. Add motion: a subtle radial/scan-line sweep over the map center, and drop 3-6 faint pulsing 'ghost' price pins that resolve into real pins when results land. Tie it to phase==='discovering' in app/page.tsx.",
+      "why": "The Agent View panel says the machine is working, but the biggest surface on screen contradicts it by sitting perfectly still and empty. Filling that void with restrained motion makes the whole app feel like it is actively searching the city.",
+      "evidence": ["evidence/demo-polish/02-agentview.png", "evidence/demo-polish/01-idle.png"],
+      "effort": "M",
+      "impact": 4,
+      "surfaces": ["app/page.tsx", "components/ListingMap.tsx", "app/globals.css"]
+    },
+    {
+      "title": "Stronger idle/hero state instead of a dead map + tiny dashed box",
+      "category": "design/empty-state",
+      "what": "On first load the map is empty and the sidebar shows only a small dashed box reading 'Enter your search and the agent will scout Craigslist live.' Add a centered hero overlay on the map: product name + tagline + a compact 3-step 'how it works' (Scout Craigslist -> Shortlist on map -> Negotiate on WhatsApp), or pre-seed the map with the cached listing pins so the canvas is never empty. Fades out once a search starts.",
+      "why": "The idle screen is the first frame a judge sees; right now it communicates almost nothing about what the product does and looks unfinished (huge blank map). A hero frame sets the stakes and makes the reveal land harder.",
+      "evidence": ["evidence/demo-polish/01-idle.png"],
+      "effort": "M",
+      "impact": 4,
+      "surfaces": ["app/page.tsx", "app/globals.css"]
+    },
+    {
+      "title": "Add a one-line product tagline under the brand lockup",
+      "category": "content/brand",
+      "what": "The header is just 'Homeless' + 'APARTMENTAGENT' with no explanation. Add a single muted mono/sans tagline beneath it, e.g. 'An AI agent that scouts Craigslist and negotiates your lease over WhatsApp.' One line, ~11-12px, --muted.",
+      "why": "'Homeless' is a memorable but opaque name; without a tagline a judge has to infer the value prop from the UI. One sentence removes all ambiguity and reads premium/intentional.",
+      "evidence": ["evidence/demo-polish/01-idle.png"],
+      "effort": "S",
+      "impact": 3,
+      "surfaces": ["app/page.tsx", "app/globals.css"]
+    },
+    {
+      "title": "Fix the muddy-brown loading button",
+      "category": "design/button",
+      "what": "The primary button while searching is amber at opacity .55 (disabled), which renders as a muddy brown behind 'Agent is searching Craigslist…'. Give the working state its own treatment: keep the amber bright and add an animated progress shimmer / indeterminate bar, or a subtle pulsing border — rather than dimming it.",
+      "why": "The button is the visual anchor of the sidebar during the whole live-search moment; a dull brown reads as broken/disabled, undercutting the 'agent is actively working' story the panel is telling.",
+      "evidence": ["evidence/demo-polish/02-agentview.png"],
+      "effort": "S",
+      "impact": 2,
+      "surfaces": ["app/globals.css", "components/SearchForm.tsx"]
+    },
+    {
+      "title": "Recolor the Agent View 'RUNNING' badge to cyan for role consistency",
+      "category": "design/agent-view",
+      "what": "The panel establishes a strict 3-role color system (amber = brand/action, cyan = live agent telemetry, green = contact). But the Agent View footer 'RUNNING' badge is rendered amber (`.badge.live`), clashing with the cyan telemetry theme of that very panel. Give the in-panel status badge a cyan variant.",
+      "why": "Within one cyan-framed telemetry panel, an amber status pill breaks the self-imposed color grammar and makes the palette look accidental rather than systematic. Judges reading design intent notice the inconsistency.",
+      "evidence": ["evidence/demo-polish/02-agentview.png"],
+      "effort": "S",
+      "impact": 2,
+      "surfaces": ["components/AgentViewPanel.tsx", "app/globals.css"]
+    },
+    {
+      "title": "Format Telegram messages with bold prices/titles (Markdown)",
+      "category": "content/telegram",
+      "what": "concierge/main.py sends everything as plain text (no parse_mode anywhere). The shortlist lines '1) title — $2450/mo 2BR · Neighborhood' and photo captions are flat. Add parse_mode Markdown/HTML and bold the price and title, and structure the shortlist as clean rows (e.g. *$2450/mo* — 2BR · Mission Dolores). Bold the '✅ Booked!' and agreed price too.",
+      "why": "The Telegram thread is a second demo surface (screenshared alongside the web UI). Bold prices and tidy structure make the chat read like a polished product notification instead of a debug echo, at near-zero effort.",
+      "evidence": ["evidence/demo-polish/04-telegram-map.png"],
+      "effort": "S",
+      "impact": 2,
+      "surfaces": ["concierge/main.py"]
+    },
+    {
+      "title": "Match the Telegram map pins to the web app's amber best-match pin",
+      "category": "design/telegram",
+      "what": "The Telegram map image (make_map_image) uses hollow cyan ring pins for every listing. The web app distinguishes the best-match with a glowing filled amber pin. Render the perfect/best-match pin in the Telegram map as a filled amber pin too, so the two surfaces share one visual language.",
+      "why": "Consistency across surfaces reads as a designed system. Right now the Telegram map and the web map use different pin styles/colors, so they look like two separate hacks rather than one product.",
+      "evidence": ["evidence/demo-polish/04-telegram-map.png", "evidence/demo-polish/05-results.png"],
+      "effort": "S",
+      "impact": 2,
+      "surfaces": ["concierge/main.py"]
+    }
+  ]
+}

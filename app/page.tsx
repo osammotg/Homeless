@@ -45,6 +45,14 @@ export default function Home() {
   const [contactListing, setContactListing] = useState<Listing | null>(null);
   const contactPoll = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashNotice = useCallback((msg: string) => {
+    setNotice(msg);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 4000);
+  }, []);
+
   const center = useMemo(() => cityCenter(query?.city ?? "san francisco"), [query]);
 
   const priceBounds = useMemo(() => {
@@ -186,12 +194,22 @@ export default function Home() {
 
   const simulateReply = useCallback(async () => {
     if (!contactId) return;
-    await fetch(`/api/contact/${contactId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reply: "Yes! It's available for your dates — want to come see it tomorrow?" }),
-    });
-  }, [contactId]);
+    try {
+      const res = await fetch(`/api/contact/${contactId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reply: "Yes! It's available for your dates — want to come see it tomorrow?" }),
+      });
+      if (res.status === 409) {
+        flashNotice("A turn is already running — try again in a moment.");
+      } else if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        flashNotice(data.error ?? "Couldn't deliver the reply — try again.");
+      }
+    } catch {
+      flashNotice("Network hiccup — couldn't deliver the reply.");
+    }
+  }, [contactId, flashNotice]);
 
   const closeContact = () => {
     stopContact();
@@ -206,10 +224,13 @@ export default function Home() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <div className="brand">
-          <span className="dot" />
-          <h1>Homeless</h1>
-          <small>ApartmentAgent</small>
+        <div className="brandwrap">
+          <div className="brand">
+            <span className="dot" />
+            <h1>Homeless</h1>
+            <small>ApartmentAgent</small>
+          </div>
+          <p className="brand-tagline">Your AI apartment concierge — it hunts and haggles for you.</p>
         </div>
 
         <SearchForm onSearch={handleSearch} loading={phase === "discovering"} />
@@ -226,36 +247,48 @@ export default function Home() {
           <>
             <FilterPanel filters={filters} onChange={setFilters} priceBounds={priceBounds} />
 
-            <div>
-              <div className="section-title">Shortlist · {shortlist.length} of {filtered.length} fits</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {shortlist.map((l) => (
-                  <ListingCard
-                    key={l.id}
-                    l={l}
-                    distanceKm={haversineKm(center, l)}
-                    onReach={handleReach}
-                    contacting={phase === "contacting"}
-                  />
-                ))}
+            {filtered.length === 0 ? (
+              <div className="empty filter-empty">
+                <span className="empty-title">No listings match your filters</span>
+                <span className="empty-sub">
+                  Widen your budget or distance — currently under <b>${filters.maxPrice}/mo</b> within{" "}
+                  <b>{filters.maxKm} km</b>. {listings.length} scouted place{listings.length === 1 ? "" : "s"} fall outside that.
+                </span>
               </div>
-            </div>
-
-            {filtered.length > shortlist.length && (
-              <div>
-                <div className="section-title">All results · {filtered.length}</div>
-                <div className="rows">
-                  {filtered.map((l) => (
-                    <div className="rowitem" key={`row-${l.id}`}>
-                      {l.imageUrl && /* eslint-disable-next-line @next/next/no-img-element */ <img src={l.imageUrl} alt="" />}
-                      <a className="rtitle" href={l.url} target="_blank" rel="noreferrer">
-                        {l.title}
-                      </a>
-                      <span className="rprice">${l.priceUsd}</span>
-                    </div>
-                  ))}
+            ) : (
+              <>
+                <div>
+                  <div className="section-title">Shortlist · {shortlist.length} of {filtered.length} fits</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {shortlist.map((l) => (
+                      <ListingCard
+                        key={l.id}
+                        l={l}
+                        distanceKm={haversineKm(center, l)}
+                        onReach={handleReach}
+                        contacting={phase === "contacting"}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+
+                {filtered.length > shortlist.length && (
+                  <div>
+                    <div className="section-title">All results · {filtered.length}</div>
+                    <div className="rows">
+                      {filtered.map((l) => (
+                        <div className="rowitem" key={`row-${l.id}`}>
+                          {l.imageUrl && /* eslint-disable-next-line @next/next/no-img-element */ <img src={l.imageUrl} alt="" />}
+                          <a className="rtitle" href={l.url} target="_blank" rel="noreferrer">
+                            {l.title}
+                          </a>
+                          <span className="rprice">${l.priceUsd}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -265,6 +298,53 @@ export default function Home() {
 
       <main className="map-wrap">
         <ListingMap listings={filtered} center={center} onReach={handleReach} />
+
+        {phase === "idle" && (
+          <div className="hero">
+            <div className="card-hero">
+              <span className="eyebrow">Signal Dispatch · live</span>
+              <h2>
+                <b>Homeless</b> ApartmentAgent
+              </h2>
+              <p className="lede">
+                Your AI apartment concierge. Tell it your city, dates and budget — it scouts Craigslist live,
+                then negotiates the viewing for you.
+              </p>
+              <div className="flow">
+                <span>DM the agent</span>
+                <span className="arw">→</span>
+                <span>scouts Craigslist live</span>
+                <span className="arw">→</span>
+                <span>negotiates on WhatsApp</span>
+                <span className="arw">→</span>
+                <span>books your viewing</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {phase !== "idle" && (
+          <div className="hud">
+            <span className="diamond" />
+            2 H agents · browser + desktop
+          </div>
+        )}
+
+        {phase === "discovering" && filtered.length === 0 && (
+          <div className="scan">
+            <span className="scan-label">
+              <span className="pulse" />
+              scanning Craigslist…
+            </span>
+          </div>
+        )}
+
+        {notice && (
+          <div className="notice">
+            <span className="k">heads up</span>
+            {notice}
+          </div>
+        )}
 
         {phase === "discovering" && discovery && (
           <AgentViewPanel

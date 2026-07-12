@@ -1,0 +1,86 @@
+{
+  "angle": "wow-factor",
+  "status": "ok",
+  "proposals": [
+    {
+      "title": "Embed the live H Agent View in-app, beside the streaming timeline",
+      "category": "feature/spectacle",
+      "what": "AgentViewPanel receives agentViewUrl but only renders a text link. Add an <iframe src={agentViewUrl}> pane next to the cyan step timeline so judges watch the real browser being driven live inside your own UI. Keep the existing 'Watch live' link as a guaranteed fallback and hide the iframe on load-error/timeout in case platform.hcompany.ai sends X-Frame-Options.",
+      "why": "Turns the strongest browser-surface moment from an invisible link into something the room actually sees; safe fallback means it can never break the demo.",
+      "evidence": ["components/AgentViewPanel.tsx:82-86", "lib/discovery.ts:143-146", "app/api/discover/[id]/route.ts"],
+      "effort": "M",
+      "impact": 5,
+      "surfaces": ["browser", "frontend"]
+    },
+    {
+      "title": "Desktop Cam: frame the real WhatsApp window during negotiation",
+      "category": "feature/spectacle",
+      "what": "The desktop agent already activates WhatsApp and force-sends via osascript. Add a /demo presenter layout (or OBS scene) that mirrors the actual WhatsApp desktop window on the projector while the agent types + sends, plus a slim in-app overlay ('H desktop agent is operating WhatsApp'). Mostly staging, no change to the H session code.",
+      "why": "The un-fakeable money shot: judges watch a cursor type and hit send in a real Mac app. This is the single biggest 'whoa' and it's currently happening off-frame.",
+      "evidence": ["contact-svc/main.py:156-200", "contact-svc/main.py:161-174", "README.md:31"],
+      "effort": "S",
+      "impact": 5,
+      "surfaces": ["desktop", "demo"]
+    },
+    {
+      "title": "'Saved you $X' negotiation-win callout on booking",
+      "category": "feature/spectacle",
+      "what": "Listing price and the agent's agreed_price / viewing_time already flow back through _apply_turn_result and the concierge 'Booked!' message. On booking, show a big 'Negotiated $2450 -> $2300 · saved $150/mo · viewing Sat 2pm' callout in-app and in the Telegram confirmation.",
+      "why": "Proves the agent didn't just message an owner, it haggled and won real money — the line judges repeat back.",
+      "evidence": ["contact-svc/main.py:256-285", "contact-svc/main.py:137-153", "concierge/main.py:295-305"],
+      "effort": "S",
+      "impact": 5,
+      "surfaces": ["desktop", "frontend", "telegram"]
+    },
+    {
+      "title": "Full-screen 'THE AGENT IS NEGOTIATING FOR YOU' state with real chat bubbles",
+      "category": "ux/demo",
+      "what": "Owner/agent turns already arrive tagged (classify() handles owner:/agent:; contact-svc emits Owner:/Agent: events). Promote the small contacting side-panel to a projector-readable hero overlay that renders the turns as green/gray WhatsApp-style bubbles in a phone frame, with a big 'Negotiating…' headline and the live timer.",
+      "why": "Makes 'it's really having a back-and-forth conversation' legible from the back of the room, at the demo's emotional peak.",
+      "evidence": ["components/AgentViewPanel.tsx:8-12", "components/AgentViewPanel.tsx:283-293", "contact-svc/main.py:266-270"],
+      "effort": "M",
+      "impact": 4,
+      "surfaces": ["frontend", "demo"]
+    },
+    {
+      "title": "Sound + confetti cues on send and on 'Booked!'",
+      "category": "ux/demo",
+      "what": "There's no audio today and the reply Toast is silent. Add a Web Audio 'send' blip when the agent fires a message and a triumphant chime + confetti burst when phase becomes replied/booked. No assets required (Web Audio API + CSS/canvas confetti).",
+      "why": "Sound at the climax is literally what makes a room react audibly; costs almost nothing.",
+      "evidence": ["app/page.tsx:295-297", "components/Toast.tsx", "app/globals.css:153-161"],
+      "effort": "S",
+      "impact": 4,
+      "surfaces": ["frontend"]
+    },
+    {
+      "title": "Persistent '2 computer-use agents' HUD badge",
+      "category": "design",
+      "what": "Add a header chip with a browser glyph and a desktop glyph that pulse when each surface is live (browser during discovering, desktop during contacting). Reuse the existing .pulse keyframe.",
+      "why": "Continuously advertises the rare dual computer-use claim instead of relying on the narrator to say it once.",
+      "evidence": ["app/globals.css:132", "app/page.tsx:14", "contact-svc/main.py:296-301"],
+      "effort": "S",
+      "impact": 3,
+      "surfaces": ["frontend"]
+    },
+    {
+      "title": "Staggered live pin-drop animation as listings arrive",
+      "category": "ux/demo",
+      "what": "finishDiscovery currently sets all listings at once so the map pops fully formed. Drop the pins one-by-one with a short bounce while the Agent View streams steps, so the map visibly fills live as the agent scrolls Craigslist. Purely front-end/cosmetic, no risk to the H session.",
+      "why": "Turns a static reveal into a suspenseful 'it's finding them right now' beat.",
+      "evidence": ["app/page.tsx:79-84", "components/ListingMap.tsx", "lib/discovery.ts:196-220"],
+      "effort": "M",
+      "impact": 3,
+      "surfaces": ["frontend"]
+    },
+    {
+      "title": "Telegram 'typing…' beats + live-streamed negotiation, optional QR to H live view",
+      "category": "ux/demo",
+      "what": "The concierge already forwards Owner:/Agent: lines to chat. Add sendChatAction:typing before each agent line and pace them so the judge's own phone lights up with the back-and-forth in real time. Optionally attach the H live-view link as a QR so judges can open the session on their own phones.",
+      "why": "Makes the 'I just texted it and it did the errand' hook tangible in the judge's hand during the pitch.",
+      "evidence": ["concierge/main.py:285-294", "concierge/main.py:57-62", "concierge/main.py:280-281"],
+      "effort": "S",
+      "impact": 3,
+      "surfaces": ["telegram"]
+    }
+  ]
+}

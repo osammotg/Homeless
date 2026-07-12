@@ -28,3 +28,8 @@ contact-svc/.venv/
 # deslop design-run screenshots (keep the .md rationale, not the PNGs)
 deslop-run/**/*.png
 deslop-run/**/*.html
+
+# autoanalysis run: keep .md/.json rationale, not screenshots/board
+autoanalysis-run/**/*.png
+autoanalysis-run/**/board.html
+autoanalysis-run/**/evidence/
